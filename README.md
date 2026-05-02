@@ -31,20 +31,38 @@ cargo build --release
 sudo cp target/release/nvoc /usr/local/bin/
 ```
 
+### Docker artifact (Linux x86_64)
+
+Build `dist/nvoc` without installing Rust locally:
+
+```bash
+mkdir -p dist
+docker buildx build --platform linux/amd64 --target artifact --output type=local,dest=dist .
+```
+
 ## Usage
 
 ```bash
-# Show GPU information
+# Show GPU information (all GPUs, table output)
 nvoc info
 
-# OC
-sudo nvoc -c MIN,MAX -o OFFSET -m MEM_OFFSET -p POWER_LIMIT
+# Show a single GPU (legacy text output)
+nvoc info -d 2
+
+# Target GPUs by name (regex)
+nvoc info --match '.*RTX 5090.*'
+
+# Apply OC settings to a specific GPU
+sudo nvoc -d 0 -c MIN,MAX -o OFFSET -m MEM_OFFSET -p POWER_LIMIT
+
+# Apply offsets to all matching GPUs
+sudo nvoc --match '.*RTX 5090.*' -o 400 -m 6000
 
 # Reset
 sudo nvoc reset
 
-# Dry Run
-nvoc -c 200,2800 --dry-run
+# Dry Run (table output even for a single GPU unless `--no-table` is set)
+sudo nvoc --match '.*RTX 5090.*' -c 200,2800 --dry-run
 ```
 
 ### Options
@@ -53,8 +71,11 @@ nvoc -c 200,2800 --dry-run
 - `-o, --offset <OFFSET>` - Graphics clock offset (MHz)
 - `-m, --memory-offset <OFFSET>` - Memory clock offset (MHz)
 - `-p, --power <PERCENT>` - Power limit percentage (50-150%)
-- `-d, --device <INDEX>` - GPU device index (default: 0)
+- `-d, --device <INDEX>` - GPU device index (default: 0 for apply/reset; `info` defaults to all GPUs)
+- `--match <REGEX>` - Target GPUs by device name regex
+- `--all` - Target all GPUs
 - `--dry-run` - Preview changes only
+- `--no-table` - Disable table output
 
 ### Examples
 
@@ -82,14 +103,11 @@ Power limits are percentages of the GPU's default power limit. Hardware enforces
 ```
 $ nvoc info
 driver: 590.48.01
-gpu 0: NVIDIA GeForce RTX 5090
-gpu clock: 1072MHz
-gpu offset: 856MHz
-mem clock: 405MHz
-temp: 44°C
-power: 14W
-power limit: 600W (104%)
-power range: 400W-575W (600W hard limit)
++-----+----------------------------+---------+---------+---------+---------+------+-------+-------+------+--------------------------+
+| idx | name                       | gpu_clk  | gpu_off | mem_clk | mem_off | temp | power | pwr_w | pwr_%| pwr_range                |
++-----+----------------------------+---------+---------+---------+---------+------+-------+-------+------+--------------------------+
+|   0 | NVIDIA GeForce RTX 5090     | 1072     | 856     | 405     | 0       | 44   | 14    | 600   | 104  | 400-575W (hard 600W)     |
++-----+----------------------------+---------+---------+---------+---------+------+-------+-------+------+--------------------------+
 ```
 
 ### Monitor
@@ -101,3 +119,40 @@ watch -n 1 nvoc info
 ## Limitations
 
 The NVML API only supports global clock offsets, not per-voltage-point adjustments. Fine-grained undervolting (setting a specific frequency at a specific voltage) is not possible. Tools like MSI Afterburner achieve this through a non-public API. This is an NVML limitation, not specific to `nvoc`.
+
+## Boot auto-apply (systemd)
+
+`nvoc` is designed to be run as a CLI. To auto-apply settings at boot, use a systemd oneshot unit with retries.
+
+1. Install `nvoc` to a stable path (example):
+
+```bash
+sudo install -m 0755 dist/nvoc /usr/local/bin/nvoc
+```
+
+2. Copy the unit template and edit `ExecStart` for your GPUs/settings:
+
+```bash
+sudo install -m 0644 contrib/systemd/nvoc-apply.service /etc/systemd/system/nvoc-apply.service
+sudo systemctl daemon-reload
+```
+
+Notes for editing `/etc/systemd/system/nvoc-apply.service`:
+
+- `ExecStart=` is **not** a shell: quotes are not interpreted, and whitespace splits arguments.
+- For regexes containing spaces, pass them as a single argv token using `--match=<REGEX>` and escape spaces, e.g. `--match=.*RTX\\ 5060\\ Ti.*`.
+- Multiple `ExecStart=` lines are allowed for `Type=oneshot` and run sequentially.
+
+3. Safe rollout (dry-run first):
+
+```bash
+# Tip: add `--dry-run` to each `ExecStart=` line first.
+sudo systemctl start nvoc-apply.service
+journalctl -u nvoc-apply.service -b --no-pager
+```
+
+4. Enable at boot:
+
+```bash
+sudo systemctl enable --now nvoc-apply.service
+```
