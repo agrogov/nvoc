@@ -1,5 +1,6 @@
 //! GPU operations and device management
 
+use crate::cli::DeviceSelector;
 use crate::constants::hardware;
 use crate::nvml::{
     device_get_count, device_get_handle_by_index, init, shutdown, system_get_driver_version,
@@ -12,6 +13,13 @@ pub mod overclock;
 pub mod power;
 pub mod reset;
 pub mod validation;
+
+#[derive(Debug, Clone)]
+pub struct DeviceRef {
+    pub index: u32,
+    pub device: NvmlDevice,
+    pub name: String,
+}
 
 /// Cleanup guard to ensure NVML is properly shut down
 pub struct CleanupGuard;
@@ -46,14 +54,36 @@ pub fn driver_version() -> Result<String> {
     system_get_driver_version()
 }
 
-pub fn get_device(device_index: u32) -> Result<NvmlDevice> {
+pub fn enumerate_devices() -> Result<Vec<DeviceRef>> {
     let device_count = device_get_count()?;
+    let mut devices = Vec::with_capacity(device_count as usize);
 
-    if device_index >= device_count {
-        return Err(crate::nvml::NvmlError::InvalidArgument);
+    for index in 0..device_count {
+        let device = device_get_handle_by_index(index)?;
+        let name = crate::nvml::device_get_name(device)?;
+        devices.push(DeviceRef { index, device, name });
     }
 
-    let device = device_get_handle_by_index(device_index)?;
+    Ok(devices)
+}
 
-    Ok(device)
+pub fn select_devices(selector: &DeviceSelector) -> Result<Vec<DeviceRef>> {
+    let devices = enumerate_devices()?;
+    match selector {
+        DeviceSelector::All => Ok(devices),
+        DeviceSelector::Single(index) => {
+            let Some(device) = devices.into_iter().find(|d| &d.index == index) else {
+                return Err(crate::nvml::NvmlError::InvalidArgument);
+            };
+            Ok(vec![device])
+        }
+        DeviceSelector::Match(re) => {
+            let re = regex::Regex::new(re)
+                .map_err(|_| crate::nvml::NvmlError::InvalidArgument)?;
+            Ok(devices
+                .into_iter()
+                .filter(|d| re.is_match(&d.name))
+                .collect())
+        }
+    }
 }

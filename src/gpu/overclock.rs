@@ -8,52 +8,62 @@ use crate::nvml::{
 };
 use crate::AppError;
 
-fn apply_clocks(device: NvmlDevice, clocks: (u32, u32), dry_run: bool) -> Result<(), AppError> {
+fn apply_clocks(device: NvmlDevice, clocks: (u32, u32), dry_run: bool) -> Result<String, AppError> {
     let (min, max) = clocks;
     if dry_run {
-        println!("clocks: {min}-{max}MHz (dry run)");
-        return Ok(());
+        return Ok(format!("{min}-{max}"));
     }
     device_set_gpu_locked_clocks(device, min, max)
         .map_err(|e| AppError::new("clocks", e))?;
-    println!("clocks: {min}-{max}MHz");
-    Ok(())
+    Ok(format!("{min}-{max}"))
 }
 
-fn apply_graphics_offset(device: NvmlDevice, offset: i32, dry_run: bool) -> Result<(), AppError> {
+fn apply_graphics_offset(device: NvmlDevice, offset: i32, dry_run: bool) -> Result<String, AppError> {
     if dry_run {
-        println!("gpu offset: {:+}MHz (dry run)", offset);
-        return Ok(());
+        return Ok(format!("{:+}", offset));
     }
     device_set_clock_offset(device, NvmlClockType::Graphics, NvmlPerfState::P0, offset)
         .map_err(|e| AppError::new("gpu offset", e))?;
-    println!("gpu offset: {:+}MHz", offset);
-    Ok(())
+    Ok(format!("{:+}", offset))
 }
 
-fn apply_memory_offset(device: NvmlDevice, offset: i32, dry_run: bool) -> Result<(), AppError> {
+fn apply_memory_offset(device: NvmlDevice, offset: i32, dry_run: bool) -> Result<String, AppError> {
     if dry_run {
-        println!("mem offset: {:+}MHz (dry run)", offset);
-        return Ok(());
+        return Ok(format!("{:+}", offset));
     }
     device_set_memory_vf_offset(device, offset)
         .map_err(|e| AppError::new("mem offset", e))?;
-    println!("mem offset: {:+}MHz", offset);
-    Ok(())
+    Ok(format!("{:+}", offset))
 }
 
-pub fn apply(device: NvmlDevice, params: &OverclockParams) -> Result<(), AppError> {
+#[derive(Debug, Clone)]
+pub struct OverclockSummary {
+    pub clocks: Option<String>,
+    pub graphics_offset: Option<String>,
+    pub memory_offset: Option<String>,
+    pub power: Option<String>,
+}
+
+pub fn apply(device: NvmlDevice, params: &OverclockParams) -> Result<OverclockSummary, AppError> {
+    let mut summary = OverclockSummary {
+        clocks: None,
+        graphics_offset: None,
+        memory_offset: None,
+        power: None,
+    };
+
     if let Some(clocks) = params.clocks {
-        apply_clocks(device, clocks, params.dry_run)?;
+        summary.clocks = Some(apply_clocks(device, clocks, params.dry_run)?);
     }
     if let Some(offset) = params.graphics_offset {
-        apply_graphics_offset(device, offset, params.dry_run)?;
+        summary.graphics_offset = Some(apply_graphics_offset(device, offset, params.dry_run)?);
     }
     if let Some(offset) = params.memory_offset {
-        apply_memory_offset(device, offset, params.dry_run)?;
+        summary.memory_offset = Some(apply_memory_offset(device, offset, params.dry_run)?);
     }
     if let Some(percentage) = params.power_limit {
-        apply_power_limit(device, percentage, params.dry_run)?;
+        summary.power = Some(apply_power_limit(device, percentage, params.dry_run)?);
     }
-    Ok(())
+
+    Ok(summary)
 }

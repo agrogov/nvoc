@@ -1,0 +1,12 @@
+[Unit]
+Description=Apply NVOC GPU settings at boot
+After=nvidia-persistenced.service
+Wants=nvidia-persistenced.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nvoc --match=.*RTX\\s+5060\\s+Ti.* -o 400 -m 6000
+ExecStart=/usr/local/bin/nvoc --match=.*RTX\\s+5090.* -o 350 -m 6000
+
+[Install]
+WantedBy=multi-user.target
