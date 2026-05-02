@@ -102,12 +102,15 @@ Power limits are percentages of the GPU's default power limit. Hardware enforces
 
 ```
 $ nvoc info
-driver: 590.48.01
-+-----+----------------------------+---------+---------+---------+---------+------+-------+-------+------+--------------------------+
-| idx | name                       | gpu_clk  | gpu_off | mem_clk | mem_off | temp | power | pwr_w | pwr_%| pwr_range                |
-+-----+----------------------------+---------+---------+---------+---------+------+-------+-------+------+--------------------------+
-|   0 | NVIDIA GeForce RTX 5090     | 1072     | 856     | 405     | 0       | 44   | 14    | 600   | 104  | 400-575W (hard 600W)     |
-+-----+----------------------------+---------+---------+---------+---------+------+-------+-------+------+--------------------------+
+driver: 595.58.03
++-----+----------------------------+---------+---------+---------+---------+------+-------+-------+-------+----------------------+
+| idx | name                       | gpu_clk | gpu_off | mem_clk | mem_off | temp | power | pwr_w | pwr_% | pwr_range            |
++-----+----------------------------+---------+---------+---------+---------+------+-------+-------+-------+----------------------+
+|   0 | NVIDIA GeForce RTX 5060 Ti |     577 |     400 |     405 |    6000 |   33 |     2 |   180 |   100 | 150-180W (hard 198W) |
+|   1 | NVIDIA GeForce RTX 5060 Ti |     577 |     400 |     405 |    6000 |   34 |     3 |   180 |   100 | 150-180W (hard 198W) |
+|   2 | NVIDIA GeForce RTX 5090    |     525 |     350 |     405 |    6000 |   44 |    20 |   575 |   100 | 400-575W (hard 600W) |
+|   3 | NVIDIA GeForce RTX 4090    |     210 |       0 |     405 |       0 |   38 |    22 |   450 |   100 | 150-450W (hard 450W) |
++-----+----------------------------+---------+---------+---------+---------+------+-------+-------+-------+----------------------+
 ```
 
 ### Monitor
@@ -140,7 +143,7 @@ sudo systemctl daemon-reload
 Notes for editing `/etc/systemd/system/nvoc-apply.service`:
 
 - `ExecStart=` is **not** a shell: quotes are not interpreted, and whitespace splits arguments.
-- For regexes containing spaces, pass them as a single argv token using `--match=<REGEX>` and escape spaces, e.g. `--match=.*RTX\\ 5060\\ Ti.*`.
+- For regexes containing spaces, pass them as a single argv token using `--match=<REGEX>` and escape spaces, e.g. `--match=.*RTX\\s+5060\\s+Ti.*`.
 - Multiple `ExecStart=` lines are allowed for `Type=oneshot` and run sequentially.
 
 3. Safe rollout (dry-run first):
