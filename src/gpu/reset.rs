@@ -9,7 +9,7 @@ use crate::constants::clocks;
 use crate::gpu::domain::reset_power_limit;
 use crate::nvml::{
     device_reset_gpu_locked_clocks, device_reset_memory_locked_clocks, device_set_clock_offset,
-    device_set_gpu_locked_clocks, device_set_memory_vf_offset, NvmlClockType, NvmlDevice,
+    device_set_memory_vf_offset, NvmlClockType, NvmlDevice,
     NvmlPerfState, Result,
 };
 use crate::AppError;
@@ -27,14 +27,7 @@ pub fn reset_gpu_settings(device: NvmlDevice, dry_run: bool) -> std::result::Res
 
     let mut errors: Vec<String> = Vec::new();
 
-    // Blackwell requires setting idle clocks before reset will succeed
-    let idle_ok = device_set_gpu_locked_clocks(device, clocks::BLACKWELL_IDLE_MIN, clocks::BLACKWELL_IDLE_MAX).is_ok();
-    if idle_ok {
-        try_reset("gpu clocks", || device_reset_gpu_locked_clocks(device), &mut errors);
-    } else {
-        errors.push("gpu clocks: failed to set idle clocks for reset".to_string());
-    }
-
+    try_reset("gpu clocks", || device_reset_gpu_locked_clocks(device), &mut errors);
     try_reset("mem clocks", || device_reset_memory_locked_clocks(device), &mut errors);
 
     try_reset("gpu offset", || {

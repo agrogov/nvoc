@@ -1,16 +1,18 @@
 # NVOC - NVIDIA GPU Overclocking
 
-GPU overclocking/undervolting utility for Blackwell RTX 50-series on Linux.
+GPU overclocking and undervolting utility for NVIDIA Blackwell GPUs on Linux, with experimental Ada Lovelace support (Help wanted with Ampere GPU support, see [Issues](https://github.com/martinstark/nvoc/issues)).
+
+Supports single and multi GPU setups. Filter GPUs by string matching, regex, or uuid.
 
 Born out of my frustration with the lack of an API that is both easy to use in the terminal, and easy to script around.
 
 ## Requirements
 
-- Linux x86_64
-- RTX 50-series GPU (5090, 5080, 5070, 5060)
-- nvidia-open 550+ driver
+- Linux
+- Blackwell GPU (GeForce RTX 50-series or RTX PRO Blackwell) or experimental Ada Lovelace GPU (GeForce RTX 40-series)
+- nvidia-open 555+ driver
 - nvidia-utils package
-- Root access
+- root access
 
 ## Install
 
@@ -80,6 +82,8 @@ sudo nvoc --match '.*RTX 5090.*' -c 200,2800 --dry-run
 ### Examples
 
 ```bash
+# SINGLE GPU
+
 # 5090 uv example
 sudo nvoc -c 200,2820 -o 856 -m 2000 -p 105
 
@@ -96,7 +100,29 @@ sudo nvoc -p 105
 sudo nvoc -c 200,2800
 ```
 
-Power limits are percentages of the GPU's default power limit. Hardware enforces absolute min/max constraints regardless of percentage.
+```bash
+# MULTI GPU
+
+# Apply to all GPUs
+sudo nvoc -d all -o 200
+
+# Using Device ID (unstable across reboots)
+sudo nvoc -d 0,1 -c 200,2820 -o 856 -m 2000 -p 105
+
+# Using UUID (stable across reboots)
+sudo nvoc -d GPU-1234... -o 856
+
+# Using name pattern (case-insensitive substring match on device name)
+sudo nvoc -d name:5090 -o 856
+sudo nvoc -d "n:5060 ti" -o 100
+
+# Using a regex pattern (case-sensitive regex search on device name)
+sudo nvoc -d "regex:RTX 50[89]0" -o 856
+# Optional ' Ti' suffix - matches both "RTX 5060" and "RTX 5060 Ti"
+sudo nvoc -d "r:5060( Ti)?" -o 100
+```
+
+Power limits are percentages of the GPU's default power limit. `nvoc` does not enforce a fixed percentage range; the card's NVML min/max power limits decide the effective watts.
 
 ### Info
 
@@ -113,11 +139,58 @@ driver: 595.58.03
 +-----+----------------------------+---------+---------+---------+---------+------+-------+-------+-------+----------------------+
 ```
 
+```bash
+# JSON
+nvoc info --json
+```
+
+### List
+
+```
+$ nvoc list
+0 - NVIDIA GeForce RTX 5090 - GPU-1234...
+```
+
+```bash
+# UUIDs only, separated by line break, no labels
+nvoc list --uuid
+
+# JSON
+nvoc list --json
+```
+
 ### Monitor
 
 ```bash
 watch -n 1 nvoc info
 ```
+
+### Apply on Boot (systemd)
+
+To apply settings on every boot, install a oneshot service:
+
+```ini
+# /etc/systemd/system/gpu-oc.service
+[Unit]
+Description=GPU overclock settings
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nvoc -c 200,2820 -o 856 -m 2000 -p 105
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now gpu-oc.service
+```
+
+Replace the `ExecStart` arguments with your tuned values. Adjust the binary path to `/usr/local/bin/nvoc` if you installed from source.
+
+On multi-GPU systems, pin by UUID (`-d GPU-...`) or by model (`-d name:5090`, or `-d "r:50[89]0"` for a regex match). NVML device indices aren't guaranteed stable across reboots.
 
 ## Limitations
 

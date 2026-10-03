@@ -1,8 +1,8 @@
 [package]
 name = "nvoc"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
-description = "NVIDIA GPU overclocking utility for Blackwell (RTX 50-series) on Linux"
+description = "NVIDIA Blackwell GPU overclocking utility for Linux"
 license = "MIT"
 keywords = ["nvidia", "gpu", "overclocking", "nvml", "blackwell"]
 categories = ["command-line-utilities", "hardware-support"]
@@ -15,4 +15,4 @@ path = "src/main.rs"
 clap = { version = "4.4", features = ["derive"] }
 libc = "0.2"
 libloading = "0.8"
-regex = "1.10"
+regex = "1.12"

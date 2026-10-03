@@ -63,8 +63,12 @@ pub enum Operation {
 }
 
 impl Operation {
-    pub fn modifies_gpu(&self) -> bool {
-        matches!(self, Operation::Reset { .. } | Operation::Overclock(_))
+    pub fn requires_root(&self) -> bool {
+        match self {
+            Operation::Reset { dry_run } => !dry_run,
+            Operation::Overclock(params) => !params.dry_run,
+            _ => false,
+        }
     }
 }
 
@@ -150,7 +154,7 @@ impl Config {
                     .short('p')
                     .long("power")
                     .value_name("PERCENT")
-                    .help("Power limit %")
+                    .help("Power limit % of default")
                     .value_parser(clap::value_parser!(u32)),
             )
             .arg(device_arg())

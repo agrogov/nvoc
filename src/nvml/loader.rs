@@ -6,7 +6,9 @@
 use libloading::Library;
 use std::sync::OnceLock;
 
-use crate::nvml::types::{NvmlClockOffset, NvmlClockType, NvmlDevice, NvmlReturn};
+use crate::nvml::types::{
+    NvmlClockOffset, NvmlClockType, NvmlDevice, NvmlDeviceArchitecture, NvmlReturn,
+};
 use libc::{c_char, c_int, c_uint};
 
 /// Global NVML library instance
@@ -110,6 +112,20 @@ pub fn nvml_device_get_name(
             .map_err(|_| crate::nvml::NvmlError::FunctionNotFound)?
     };
     Ok(unsafe { func(device, name, length) })
+}
+
+pub fn nvml_device_get_architecture(
+    device: NvmlDevice,
+    arch: *mut NvmlDeviceArchitecture,
+) -> Result<NvmlReturn, crate::nvml::NvmlError> {
+    let lib = load_nvml_library()?;
+    let func: libloading::Symbol<
+        unsafe extern "C" fn(NvmlDevice, *mut NvmlDeviceArchitecture) -> NvmlReturn,
+    > = unsafe {
+        lib.get(b"nvmlDeviceGetArchitecture")
+            .map_err(|_| crate::nvml::NvmlError::FunctionNotFound)?
+    };
+    Ok(unsafe { func(device, arch) })
 }
 
 pub fn nvml_device_get_clock_offsets(
@@ -278,4 +294,45 @@ pub fn nvml_device_set_power_management_limit(
             .map_err(|_| crate::nvml::NvmlError::FunctionNotFound)?
     };
     Ok(unsafe { func(device, limit) })
+}
+
+pub fn nvml_device_get_uuid(
+    device: NvmlDevice,
+    uuid: *mut c_char,
+    length: c_uint,
+) -> Result<NvmlReturn, crate::nvml::NvmlError> {
+    let lib = load_nvml_library()?;
+    let func: libloading::Symbol<
+        unsafe extern "C" fn(NvmlDevice, *mut c_char, c_uint) -> NvmlReturn,
+    > = unsafe {
+        lib.get(b"nvmlDeviceGetUUID")
+            .map_err(|_| crate::nvml::NvmlError::FunctionNotFound)?
+    };
+    Ok(unsafe { func(device, uuid, length) })
+}
+
+pub fn nvml_device_get_handle_by_uuid(
+    uuid: *const c_char,
+    device: *mut NvmlDevice,
+) -> Result<NvmlReturn, crate::nvml::NvmlError> {
+    let lib = load_nvml_library()?;
+    let func: libloading::Symbol<
+        unsafe extern "C" fn(*const c_char, *mut NvmlDevice) -> NvmlReturn,
+    > = unsafe {
+        lib.get(b"nvmlDeviceGetHandleByUUID")
+            .map_err(|_| crate::nvml::NvmlError::FunctionNotFound)?
+    };
+    Ok(unsafe { func(uuid, device) })
+}
+
+pub fn nvml_device_get_index(
+    device: NvmlDevice,
+    index: *mut c_uint,
+) -> Result<NvmlReturn, crate::nvml::NvmlError> {
+    let lib = load_nvml_library()?;
+    let func: libloading::Symbol<unsafe extern "C" fn(NvmlDevice, *mut c_uint) -> NvmlReturn> = unsafe {
+        lib.get(b"nvmlDeviceGetIndex")
+            .map_err(|_| crate::nvml::NvmlError::FunctionNotFound)?
+    };
+    Ok(unsafe { func(device, index) })
 }

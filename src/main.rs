@@ -48,7 +48,7 @@ impl std::fmt::Display for AppError {
 fn run() -> Result<(), AppError> {
     let config = cli::Config::from_args().unwrap_or_else(|e| e.exit());
 
-    if config.operation.modifies_gpu() {
+    if config.operation.requires_root() {
         gpu::validation::check_system_for_modification()
             .map_err(|e| AppError::new("nvoc", e))?;
     }
@@ -89,7 +89,7 @@ fn run() -> Result<(), AppError> {
                     let mut status = "OK".to_string();
                     let mut err = "-".to_string();
 
-                    if let Err(e) = gpu::validation::validate_blackwell_architecture(d.device) {
+                    if let Err(e) = gpu::validation::validate_supported_architecture(d.device) {
                         status = "ERR".to_string();
                         err = e.user_message().to_string();
                         any_err = true;
@@ -117,7 +117,7 @@ fn run() -> Result<(), AppError> {
                     if multi {
                         println!("gpu {}: {}", d.index, d.name);
                     }
-                    gpu::validation::validate_blackwell_architecture(d.device)
+                    gpu::validation::validate_supported_architecture(d.device)
                         .map_err(|e| AppError::new("gpu", e))?;
                     gpu::reset::reset_gpu_settings(d.device, dry_run)?;
                     if dry_run {
@@ -152,7 +152,7 @@ fn run() -> Result<(), AppError> {
                     let mut mem_off = "-".to_string();
                     let mut power = "-".to_string();
 
-                    if let Err(e) = gpu::validation::validate_blackwell_architecture(d.device) {
+                    if let Err(e) = gpu::validation::validate_supported_architecture(d.device) {
                         status = "ERR".to_string();
                         err = e.user_message().to_string();
                         any_err = true;
@@ -194,7 +194,7 @@ fn run() -> Result<(), AppError> {
                     if multi {
                         println!("gpu {}: {}", d.index, d.name);
                     }
-                    gpu::validation::validate_blackwell_architecture(d.device)
+                    gpu::validation::validate_supported_architecture(d.device)
                         .map_err(|e| AppError::new("gpu", e))?;
                     let summary = gpu::overclock::apply(d.device, params)?;
                     print_overclock_summary_text(&summary, params.dry_run);
